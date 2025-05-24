@@ -1,7 +1,9 @@
 {
   "name": "jwt-api",
+  "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "jsonwebtoken": "^9.0.2"
+    "axios": "^1.4.0",
+    "jsonwebtoken": "^9.0.0"
   }
 }
