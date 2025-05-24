@@ -1,20 +1,36 @@
 import jwt from 'jsonwebtoken';
+import axios from 'axios';
 
 export default async function handler(req, res) {
-  const { email, uid } = req.body;
-
-  const secret = process.env.JWT_SECRET || 'dnlsldqlr1!';
-  const payload = {
-    email,
-    uid,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 60 * 5
-  };
-
   try {
-    const token = jwt.sign(payload, secret, { algorithm: 'HS256' });
-    res.status(200).json({ token });
+    const clientEmail = process.env.GCP_CLIENT_EMAIL;
+    const privateKey = process.env.GCP_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+    if (!clientEmail || !privateKey) {
+      return res.status(500).json({ error: 'Missing credentials' });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      iss: clientEmail,
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    };
+
+    const jwtToken = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', null, {
+      params: {
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwtToken,
+      },
+    });
+
+    return res.status(200).json({ access_token: tokenResponse.data.access_token });
   } catch (error) {
-    res.status(500).json({ error: 'JWT 생성 실패', detail: error.message });
+    console.error(error.response?.data || error.message || error);
+    return res.status(500).json({ error: 'Token generation failed' });
   }
 }
